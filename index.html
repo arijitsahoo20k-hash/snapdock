@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Snapdock — point your phone, watch it land on your desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" />
+<style>
+  :root{
+    --bg:#171310;
+    --bg-soft:#1e1a15;
+    --card:#231e18;
+    --card-hi:#2a241c;
+    --line: rgba(255,235,210,0.08);
+    --ink:#f3ecdf;
+    --muted:#a89c87;
+    --muted-dim:#786d5c;
+    --amber:#ff9d42;
+    --amber-deep:#c96e1f;
+    --teal:#5fd6c4;
+    --teal-deep:#2e9184;
+    --font-display:'Bricolage Grotesque', system-ui, sans-serif;
+    --font-body:'Inter', system-ui, sans-serif;
+    --radius:22px;
+    --radius-sm:14px;
+  }
+  *,*::before,*::after{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+  }
+  .grain{position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .glow{position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(700px 420px at 50% -6%, rgba(255,157,66,0.10), transparent 60%),
+      radial-gradient(600px 420px at 90% 30%, rgba(95,214,196,0.06), transparent 60%);
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:0 22px; position:relative; z-index:1;}
+  h1,h2,h3{font-family:var(--font-display); font-weight:700; margin:0 0 10px; letter-spacing:-0.01em;}
+  p{margin:0 0 14px; line-height:1.65; color:var(--muted);}
+  :focus-visible{outline:2px solid var(--amber); outline-offset:3px; border-radius:8px;}
+
+  /* ---------- nav ---------- */
+  .nav{display:flex; align-items:center; justify-content:space-between; padding:26px 0;}
+  .brand{display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-weight:700; font-size:17px;}
+  .brand-mark{width:34px; height:34px;}
+  .status-pill{
+    display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:var(--muted);
+    background:var(--card); border:1px solid var(--line); border-radius:999px; padding:7px 13px;
+  }
+  .status-dot{width:7px; height:7px; border-radius:50%; background:var(--muted-dim); transition:background .2s;}
+  .status-dot.live{background:var(--teal); box-shadow:0 0 0 3px rgba(95,214,196,0.18);}
+
+  /* ---------- hero ---------- */
+  .hero{padding:26px 0 10px; text-align:center;}
+  .hero h1{font-size:clamp(32px,6vw,48px); line-height:1.06; margin-bottom:16px;}
+  .hero h1 .warm{color:var(--amber);}
+  .hero p.lead{max-width:440px; margin:0 auto 30px; font-size:16px;}
+
+  .beam-illustration{display:block; margin:0 auto 8px;}
+
+  /* ---------- capture card ---------- */
+  .stage{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:26px; margin:34px 0; text-align:center;
+    box-shadow: 0 18px 40px -20px rgba(0,0,0,0.6);
+  }
+  .stage-eyebrow{font-size:12.5px; font-weight:600; color:var(--muted-dim); margin-bottom:4px;}
+  .stage h2{font-size:20px; margin-bottom:8px;}
+  .stage p{font-size:14.5px; max-width:400px; margin-left:auto; margin-right:auto;}
+
+  .btn{
+    font-family:var(--font-body); font-weight:700; font-size:14.5px;
+    border:none; border-radius:999px; padding:13px 24px; cursor:pointer;
+    display:inline-flex; align-items:center; gap:9px;
+    transition:transform .12s ease, box-shadow .12s ease, opacity .15s ease;
+  }
+  .btn:disabled{opacity:.45; cursor:not-allowed;}
+  .btn-primary{ background:linear-gradient(155deg, #ffb46b, var(--amber) 60%, var(--amber-deep)); color:#241102;
+    box-shadow:0 10px 22px -8px rgba(255,157,66,0.55);}
+  .btn-primary:not(:disabled):hover{transform:translateY(-1px);}
+  .btn-primary:not(:disabled):active{transform:translateY(1px);}
+  .btn-ghost{background:var(--card-hi); color:var(--ink); border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:rgba(255,235,210,0.18);}
+
+  video{width:100%; max-width:420px; border-radius:var(--radius-sm); background:#000; display:block; margin:0 auto 18px; transform:scaleX(-1);}
+  canvas{display:none;}
+
+  .capture-row{display:flex; gap:12px; justify-content:center; flex-wrap:wrap;}
+  .permission-note{font-size:12.5px; color:var(--muted-dim); margin-top:14px;}
+
+  .flash{position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:50;}
+  .flash.go{animation:flashpop .35s ease-out;}
+  @keyframes flashpop{0%{opacity:.75;}100%{opacity:0;}}
+
+  /* ---------- how it works ---------- */
+  section.how{padding:36px 0;}
+  .how h2{font-size:22px; text-align:center; margin-bottom:26px;}
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+  .step{background:var(--bg-soft); border:1px solid var(--line); border-radius:var(--radius-sm); padding:18px;}
+  .step-num{
+    width:26px; height:26px; border-radius:50%; background:var(--card-hi); color:var(--amber);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; margin-bottom:10px;
+  }
+  .step h3{font-size:15px; margin-bottom:6px;}
+  .step p{font-size:13.5px; margin-bottom:0;}
+  @media (max-width:600px){ .steps{grid-template-columns:1fr;} }
+
+  /* ---------- gallery ---------- */
+  section.gallery{padding:10px 0 70px;}
+  .gallery-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:18px;}
+  .gallery-head h2{font-size:20px; margin-bottom:0;}
+  .gallery-count{font-size:13px; color:var(--muted-dim); font-weight:600;}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:12px;}
+  .thumb{
+    position:relative; border-radius:var(--radius-sm); overflow:hidden; aspect-ratio:1/1;
+    background:var(--card); border:1px solid var(--line);
+    animation:land .4s ease-out;
+  }
+  .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  @keyframes land{ from{opacity:0; transform:scale(.92) translateY(6px);} to{opacity:1; transform:none;} }
+  .empty-state{
+    border:1px dashed var(--line); border-radius:var(--radius-sm); padding:30px 20px; text-align:center;
+    color:var(--muted-dim); font-size:13.5px;
+  }
+
+  footer{padding:30px 0 50px; text-align:center; font-size:12.5px; color:var(--muted-dim);}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="glow"></div>
+<div class="flash" id="flash"></div>
+
+<div class="wrap">
+  <nav class="nav">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="19" stroke="var(--amber)" stroke-width="1.6"/>
+        <circle cx="20" cy="20" r="7.5" stroke="var(--amber)" stroke-width="1.6"/>
+        <path d="M20 5 L23 12 L17 12 Z" fill="var(--amber)"/>
+      </svg>
+      Snapdock
+    </div>
+    <div class="status-pill"><span class="status-dot" id="liveDot"></span><span id="liveLabel">connecting…</span></div>
+  </nav>
+
+  <section class="hero">
+    <svg class="beam-illustration" width="220" height="120" viewBox="0 0 220 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- camera -->
+      <rect x="14" y="38" width="62" height="46" rx="10" stroke="var(--ink)" stroke-width="2" fill="var(--card)"/>
+      <rect x="34" y="28" width="20" height="12" rx="4" stroke="var(--ink)" stroke-width="2" fill="var(--card)"/>
+      <circle cx="45" cy="62" r="15" stroke="var(--amber)" stroke-width="2"/>
+      <circle cx="45" cy="62" r="7" stroke="var(--amber)" stroke-width="1.6"/>
+      <circle cx="65" cy="48" r="2.4" fill="var(--teal)"/>
+      <!-- beam -->
+      <path d="M78 55 C 110 30, 140 30, 168 46" stroke="var(--teal)" stroke-width="2" stroke-dasharray="3 6" stroke-linecap="round"/>
+      <path d="M78 66 C 112 78, 142 78, 168 62" stroke="var(--teal)" stroke-width="2" stroke-dasharray="3 6" stroke-linecap="round"/>
+      <!-- desk / monitor -->
+      <rect x="168" y="34" width="40" height="28" rx="5" stroke="var(--ink)" stroke-width="2" fill="var(--card)"/>
+      <path d="M182 68 h14" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/>
+      <path d="M188 62 v6" stroke="var(--ink)" stroke-width="2"/>
+      <circle cx="188" cy="48" r="4" fill="var(--teal)"/>
+    </svg>
+
+    <h1>Point your phone,<br>watch it land <span class="warm">on your desk</span></h1>
+    <p class="lead">Snapdock turns your phone's camera into a wire straight to this computer. Nothing is sent anywhere else — it stays on your network.</p>
+  </section>
+
+  <div class="stage" id="stage">
+    <div id="gateView">
+      <div class="stage-eyebrow">Step one</div>
+      <h2>Let Snapdock use your camera</h2>
+      <p>Your browser will ask to confirm. Nothing is captured until you tap the shutter yourself.</p>
+      <button class="btn btn-primary" id="grantBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 8a2 2 0 0 1 2-2h2l1.2-1.8A2 2 0 0 1 10.9 3h2.2a2 2 0 0 1 1.7 1L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z" stroke="#241102" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4" stroke="#241102" stroke-width="1.8"/></svg>
+        Allow camera access
+      </button>
+      <p class="permission-note" id="gateNote">Works over localhost. If you're opening Snapdock from your phone, see the README for the one-time HTTPS step.</p>
+    </div>
+
+    <div id="captureView" style="display:none;">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+      <div class="capture-row">
+        <button class="btn btn-primary" id="shutterBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="#241102" stroke-width="1.8"/><circle cx="12" cy="12" r="3.2" fill="#241102"/></svg>
+          Take photo
+        </button>
+        <button class="btn btn-ghost" id="switchBtn">Flip camera</button>
+      </div>
+      <p class="permission-note" id="sendStatus">&nbsp;</p>
+    </div>
+  </div>
+
+  <section class="how">
+    <h2>How it gets from your hand to your desk</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Grant camera access</h3>
+        <p>Snapdock only asks once, and only when you tap the button above.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Tap the shutter</h3>
+        <p>The photo is taken in your browser — nothing uploads until you take it.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>It lands below</h3>
+        <p>Your local server saves it to disk and every open tab sees it instantly.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="gallery">
+    <div class="gallery-head">
+      <h2>What's landed so far</h2>
+      <span class="gallery-count" id="countLabel">0 photos</span>
+    </div>
+    <div id="galleryGrid" class="grid"></div>
+    <div class="empty-state" id="emptyState">Nothing here yet — the first photo you take will show up in this spot.</div>
+  </section>
+
+  <footer>Snapdock · runs entirely on your machine · photos live in the <code>/uploads</code> folder</footer>
+</div>
+
+<script>
+  // If this page is opened from anywhere other than the server itself
+  // (e.g. hosted on GitHub Pages), point API calls at the local server
+  // running on this same machine. Change the port here if you run the
+  // server on something other than 3000.
+  const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? ''
+    : 'http://localhost:3000';
+
+  const gateView = document.getElementById('gateView');
+  const captureView = document.getElementById('captureView');
+  const grantBtn = document.getElementById('grantBtn');
+  const gateNote = document.getElementById('gateNote');
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const shutterBtn = document.getElementById('shutterBtn');
+  const switchBtn = document.getElementById('switchBtn');
+  const sendStatus = document.getElementById('sendStatus');
+  const flash = document.getElementById('flash');
+  const grid = document.getElementById('galleryGrid');
+  const emptyState = document.getElementById('emptyState');
+  const countLabel = document.getElementById('countLabel');
+  const liveDot = document.getElementById('liveDot');
+  const liveLabel = document.getElementById('liveLabel');
+
+  let stream = null;
+  let facingMode = 'user';
+  let photoCount = 0;
+
+  // ---- gallery rendering ----
+  function addPhoto(photo, animate) {
+    emptyState.style.display = 'none';
+    const div = document.createElement('div');
+    div.className = 'thumb';
+    if (!animate) div.style.animation = 'none';
+    const img = document.createElement('img');
+    img.src = photo.url.startsWith('http') ? photo.url : API_BASE + photo.url;
+    img.alt = 'Captured photo';
+    div.appendChild(img);
+    grid.prepend(div);
+    photoCount++;
+    countLabel.textContent = photoCount + (photoCount === 1 ? ' photo' : ' photos');
+  }
+
+  fetch(API_BASE + '/api/photos').then(r => r.json()).then(photos => {
+    if (!photos.length) return;
+    photos.forEach(p => addPhoto(p, false));
+  }).catch(() => {});
+
+  // ---- live updates ----
+  try {
+    const es = new EventSource(API_BASE + '/api/events');
+    es.addEventListener('ping', () => { liveDot.classList.add('live'); liveLabel.textContent = 'live'; });
+    es.addEventListener('photo', (e) => addPhoto(JSON.parse(e.data), true));
+    es.onerror = () => { liveDot.classList.remove('live'); liveLabel.textContent = 'reconnecting…'; };
+  } catch (err) {
+    liveLabel.textContent = 'offline';
+  }
+
+  // ---- camera permission gate ----
+  async function startCamera() {
+    grantBtn.disabled = true;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false });
+      video.srcObject = stream;
+      gateView.style.display = 'none';
+      captureView.style.display = 'block';
+    } catch (err) {
+      gateNote.textContent = 'Camera access was denied or unavailable. Check your browser\'s site permissions and try again.';
+      grantBtn.disabled = false;
+    }
+  }
+  grantBtn.addEventListener('click', startCamera);
+
+  switchBtn.addEventListener('click', async () => {
+    facingMode = facingMode === 'user' ? 'environment' : 'user';
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false });
+    video.srcObject = stream;
+  });
+
+  // ---- capture + upload ----
+  shutterBtn.addEventListener('click', () => {
+    const w = video.videoWidth, h = video.videoHeight;
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    // mirror back to natural orientation on capture
+    ctx.translate(w, 0); ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, w, h);
+
+    flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');
+
+    canvas.toBlob((blob) => {
+      const fd = new FormData();
+      fd.append('photo', blob, 'snap.jpg');
+      shutterBtn.disabled = true;
+      sendStatus.textContent = 'Sending to your server…';
+      fetch(API_BASE + '/api/upload', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(() => { sendStatus.textContent = 'Landed. Scroll down to see it.'; })
+        .catch(() => { sendStatus.textContent = "Couldn't reach the server — is it still running?"; })
+        .finally(() => { shutterBtn.disabled = false; setTimeout(() => sendStatus.textContent = '\u00A0', 2500); });
+    }, 'image/jpeg', 0.92);
+  });
+</script>
+</body>
+</html>
