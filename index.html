@@ -88,7 +88,8 @@
   .btn-ghost{background:var(--card-hi); color:var(--ink); border:1px solid var(--line);}
   .btn-ghost:hover{border-color:rgba(255,235,210,0.18);}
 
-  video{width:100%; max-width:420px; border-radius:var(--radius-sm); background:#000; display:block; margin:0 auto 18px; transform:scaleX(-1);}
+  video{width:100%; max-width:420px; border-radius:var(--radius-sm); background:#000; display:block; margin:0 auto 18px;}
+  video.mirrored{transform:scaleX(-1);}
   canvas{display:none;}
 
   .capture-row{display:flex; gap:12px; justify-content:center; flex-wrap:wrap;}
@@ -313,11 +314,18 @@
   connectLive();
 
   // ---- camera permission gate ----
+  const VIDEO_CONSTRAINTS = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+
+  function applyMirror() {
+    video.classList.toggle('mirrored', facingMode === 'user');
+  }
+
   async function startCamera() {
     grantBtn.disabled = true;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false });
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode, ...VIDEO_CONSTRAINTS }, audio: false });
       video.srcObject = stream;
+      applyMirror();
       gateView.style.display = 'none';
       captureView.style.display = 'block';
     } catch (err) {
@@ -330,8 +338,9 @@
   switchBtn.addEventListener('click', async () => {
     facingMode = facingMode === 'user' ? 'environment' : 'user';
     if (stream) stream.getTracks().forEach(t => t.stop());
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode, ...VIDEO_CONSTRAINTS }, audio: false });
     video.srcObject = stream;
+    applyMirror();
   });
 
   // ---- capture + upload ----
@@ -339,8 +348,11 @@
     const w = video.videoWidth, h = video.videoHeight;
     canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext('2d');
-    // mirror back to natural orientation on capture
-    ctx.translate(w, 0); ctx.scale(-1, 1);
+    // Save the photo the same way it looks in preview: mirrored on the
+    // front camera (like a selfie), natural on the back camera.
+    if (facingMode === 'user') {
+      ctx.translate(w, 0); ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, 0, 0, w, h);
 
     flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');
@@ -355,7 +367,7 @@
         .then(() => { sendStatus.textContent = 'Landed. Scroll down to see it.'; })
         .catch(() => { sendStatus.textContent = "Couldn't reach the server — is it still running?"; })
         .finally(() => { shutterBtn.disabled = false; setTimeout(() => sendStatus.textContent = '\u00A0', 2500); });
-    }, 'image/jpeg', 0.92);
+    }, 'image/jpeg', 0.97);
   });
 </script>
 </body>
