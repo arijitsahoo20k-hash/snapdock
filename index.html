@@ -232,13 +232,9 @@
 </div>
 
 <script>
-  // If this page is opened from anywhere other than the server itself
-  // (e.g. hosted on GitHub Pages), point API calls at the local server
-  // running on this same machine. Change the port here if you run the
-  // server on something other than 3000.
-  const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-    ? ''
-    : 'http://localhost:3000';
+  // Points at the ngrok tunnel in front of the local server, so this
+  // page works from any device as long as the server + ngrok are running.
+  const API_BASE = 'https://most-retype-wad.ngrok-free.dev';
 
   const gateView = document.getElementById('gateView');
   const captureView = document.getElementById('captureView');
@@ -275,20 +271,46 @@
     countLabel.textContent = photoCount + (photoCount === 1 ? ' photo' : ' photos');
   }
 
-  fetch(API_BASE + '/api/photos').then(r => r.json()).then(photos => {
+  // ngrok's free tier injects a warning page in front of plain browser
+  // requests unless this header is present — needed on every call.
+  const NGROK_HEADERS = { 'ngrok-skip-browser-warning': '1' };
+
+  fetch(API_BASE + '/api/photos', { headers: NGROK_HEADERS }).then(r => r.json()).then(photos => {
     if (!photos.length) return;
     photos.forEach(p => addPhoto(p, false));
   }).catch(() => {});
 
   // ---- live updates ----
-  try {
-    const es = new EventSource(API_BASE + '/api/events');
-    es.addEventListener('ping', () => { liveDot.classList.add('live'); liveLabel.textContent = 'live'; });
-    es.addEventListener('photo', (e) => addPhoto(JSON.parse(e.data), true));
-    es.onerror = () => { liveDot.classList.remove('live'); liveLabel.textContent = 'reconnecting…'; };
-  } catch (err) {
-    liveLabel.textContent = 'offline';
+  // Plain EventSource can't send custom headers, and ngrok's free-tier
+  // warning page needs one — so the SSE stream is read manually via fetch.
+  async function connectLive() {
+    try {
+      const res = await fetch(API_BASE + '/api/events', { headers: NGROK_HEADERS });
+      liveDot.classList.add('live'); liveLabel.textContent = 'live';
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split('\n\n');
+        buffer = chunks.pop();
+        for (const chunk of chunks) {
+          const eventLine = chunk.split('\n').find(l => l.startsWith('event:'));
+          const dataLine = chunk.split('\n').find(l => l.startsWith('data:'));
+          if (eventLine && dataLine && eventLine.includes('photo')) {
+            addPhoto(JSON.parse(dataLine.slice(5).trim()), true);
+          }
+        }
+      }
+      throw new Error('stream closed');
+    } catch (err) {
+      liveDot.classList.remove('live'); liveLabel.textContent = 'reconnecting…';
+      setTimeout(connectLive, 3000);
+    }
   }
+  connectLive();
 
   // ---- camera permission gate ----
   async function startCamera() {
@@ -328,7 +350,7 @@
       fd.append('photo', blob, 'snap.jpg');
       shutterBtn.disabled = true;
       sendStatus.textContent = 'Sending to your server…';
-      fetch(API_BASE + '/api/upload', { method: 'POST', body: fd })
+      fetch(API_BASE + '/api/upload', { method: 'POST', body: fd, headers: NGROK_HEADERS })
         .then(r => r.json())
         .then(() => { sendStatus.textContent = 'Landed. Scroll down to see it.'; })
         .catch(() => { sendStatus.textContent = "Couldn't reach the server — is it still running?"; })
